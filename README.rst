@@ -18,7 +18,7 @@ Installing
 
 To install::
 
-    pip install git+https://github.com/astrofrog/tox-pypi-filter
+    pip install tox-pypi-filter
 
 Using
 -----
