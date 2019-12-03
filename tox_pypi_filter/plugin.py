@@ -51,7 +51,7 @@ def tox_configure(config):
     sock.close()
 
     # Run pypicky
-    print('Starting PyPIcky server')
+    print('Starting tox-pypi-filter server')
     SERVER_PROCESS = subprocess.Popen(['pypicky', reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
@@ -62,5 +62,6 @@ def tox_configure(config):
 
 @hookimpl
 def tox_cleanup(session):
-    print('Shutting down PyPIcky server')
-    SERVER_PROCESS.terminate()
+    if SERVER_PROCESS is not None:
+        print('Shutting down tox-pypi-filter server')
+        SERVER_PROCESS.terminate()
