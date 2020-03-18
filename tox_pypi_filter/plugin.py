@@ -6,9 +6,12 @@ import tempfile
 import subprocess
 import urllib.parse
 import urllib.request
+from textwrap import indent
 
 import pluggy
 from pkg_resources import DistributionNotFound, get_distribution
+
+from tox.interpreters import tox_get_python_executable as _tox_get_python_executable
 
 try:
     __version__ = get_distribution(__name__).version
@@ -49,6 +52,9 @@ def tox_get_python_executable(envconfig):
     # basis (since the pypi_filter configuration could in principle be different
     # for each environment)
 
+    # Figure out what the output of this function should actually be
+    executable = _tox_get_python_executable(envconfig)
+
     global SERVER_PROCESS
 
     # If running multiple environments, we need to shut down any previous server
@@ -61,7 +67,7 @@ def tox_get_python_executable(envconfig):
     pypi_filter_req = envconfig.config.option.pypi_filter_req or envconfig.pypi_filter_requirements
 
     if pypi_filter is None and pypi_filter_req is None:
-        return
+        return executable
 
     if pypi_filter and pypi_filter_req:
         raise ValueError("Please specify only one of --pypi-filter or --pypi-filter-requirements")
@@ -83,7 +89,7 @@ def tox_get_python_executable(envconfig):
     with open(reqfile, "r") as fobj:
         contents = fobj.read()
         if not contents:
-            return
+            return executable
 
     # Find available port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -93,7 +99,7 @@ def tox_get_python_executable(envconfig):
 
     # Run pypicky
     print('Starting tox-pypi-filter server with the following requirements:')
-    print(contents)
+    print(indent(contents.strip(), '  '))
 
     SERVER_PROCESS = subprocess.Popen([sys.executable, '-m', 'pypicky',
                                        reqfile, '--port', str(port), '--quiet'])
@@ -102,6 +108,8 @@ def tox_get_python_executable(envconfig):
     time.sleep(2)
 
     envconfig.config.indexserver['default'].url = f'http://localhost:{port}'
+
+    return executable
 
 
 @hookimpl
