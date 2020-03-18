@@ -70,8 +70,6 @@ def tox_configure(config):
         if not contents:
             return
 
-    print(f"tox-pypi-filter is enforcing the following version requirements:\n{contents}".strip())
-
     # Find available port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('localhost', 0))
@@ -79,7 +77,11 @@ def tox_configure(config):
     sock.close()
 
     # Run pypicky
-    print('Starting tox-pypi-filter server')
+    print('Starting tox-pypi-filter server with the following requirements:')
+    print('')
+    print(contents)
+    print('')
+
     SERVER_PROCESS = subprocess.Popen(['pypicky', reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
