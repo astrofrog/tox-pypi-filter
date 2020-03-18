@@ -52,7 +52,8 @@ def tox_configure(config):
 
     # Run pypicky
     print('Starting tox-pypi-filter server')
-    SERVER_PROCESS = subprocess.Popen(['pypicky', reqfile, '--port', str(port), '--quiet'])
+    SERVER_PROCESS = subprocess.Popen([sys.executable, '-m', 'pypicky',
+                                       reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
