@@ -53,7 +53,7 @@ def tox_get_python_executable(envconfig):
     # for each environment)
 
     # Figure out what the output of this function should actually be
-    executable = _tox_get_python_executable(envconfig)
+    executable = os.path.abspath(_tox_get_python_executable(envconfig))
 
     global SERVER_PROCESS
 
