@@ -46,28 +46,39 @@ SERVER_PROCESS = None
 
 
 @hookimpl
-def tox_get_python_executable(envconfig):
+def tox_configure(config):
+
+    # In principle, the pypi_filter settings could be different for different
+    # environments. For now, we check whether there are any differences and
+    # error if so
+
+    if len(set(envconfig.pypi_filter for envconfig in config.envconfigs.values())) > 1:
+        raise NotImplementedError("The pypi_filter option can only be specified "
+                                  "once, in the global [testenv] section of the "
+                                  "tox configuration.")
+
+    if len(set(envconfig.pypi_filter_requirements for envconfig in config.envconfigs.values())) > 1:
+        raise NotImplementedError("The pypi_filter_requirements option can only be specified "
+                                  "once, in the global [testenv] section of the "
+                                  "tox configuration.")
+
+    # Provided the above checks passed, we can then pick any environment to
+    # look at these options
+    envconfig = list(config.envconfigs.values())[0]
 
     # This is a good place to set up the server an on environment by environment
     # basis (since the pypi_filter configuration could in principle be different
     # for each environment)
 
-    # Figure out what the output of this function should actually be
-    executable = os.path.abspath(_tox_get_python_executable(envconfig))
-
     global SERVER_PROCESS
 
     # If running multiple environments, we need to shut down any previous server
-
-    if SERVER_PROCESS is not None:
-        SERVER_PROCESS.terminate()
-        SERVER_PROCESS = None
 
     pypi_filter = envconfig.config.option.pypi_filter or envconfig.pypi_filter
     pypi_filter_req = envconfig.config.option.pypi_filter_req or envconfig.pypi_filter_requirements
 
     if pypi_filter is None and pypi_filter_req is None:
-        return executable
+        return
 
     if pypi_filter and pypi_filter_req:
         raise ValueError("Please specify only one of --pypi-filter or --pypi-filter-requirements")
@@ -89,7 +100,7 @@ def tox_get_python_executable(envconfig):
     with open(reqfile, "r") as fobj:
         contents = fobj.read()
         if not contents:
-            return executable
+            return
 
     # Find available port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -108,8 +119,6 @@ def tox_get_python_executable(envconfig):
     time.sleep(2)
 
     envconfig.config.indexserver['default'].url = f'http://localhost:{port}'
-
-    return executable
 
 
 @hookimpl
