@@ -42,42 +42,16 @@ def tox_addoption(parser):
                                  help=HELP_REQ)
 
 
-SERVER_PROCESS = None
-
+SERVER_PROCESS = []
 
 @hookimpl
-def tox_configure(config):
-
-    # In principle, the pypi_filter settings could be different for different
-    # environments. For now, we check whether there are any differences and
-    # error if so
-
-    if len(set(envconfig.pypi_filter for envconfig in config.envconfigs.values())) > 1:
-        raise NotImplementedError("The pypi_filter option can only be specified "
-                                  "once, in the global [testenv] section of the "
-                                  "tox configuration.")
-
-    if len(set(envconfig.pypi_filter_requirements for envconfig in config.envconfigs.values())) > 1:
-        raise NotImplementedError("The pypi_filter_requirements option can only be specified "
-                                  "once, in the global [testenv] section of the "
-                                  "tox configuration.")
-
-    # Provided the above checks passed, we can then pick any environment to
-    # look at these options
-    envconfig = list(config.envconfigs.values())[0]
-
-    # This is a good place to set up the server an on environment by environment
-    # basis (since the pypi_filter configuration could in principle be different
-    # for each environment)
-
+def tox_testenv_create(venv, action):
     global SERVER_PROCESS
 
-    # If running multiple environments, we need to shut down any previous server
+    pypi_filter = venv.envconfig.config.option.pypi_filter or venv.envconfig.pypi_filter
+    pypi_filter_req = venv.envconfig.config.option.pypi_filter_req or venv.envconfig.pypi_filter_requirements
 
-    pypi_filter = envconfig.config.option.pypi_filter or envconfig.pypi_filter
-    pypi_filter_req = envconfig.config.option.pypi_filter_req or envconfig.pypi_filter_requirements
-
-    if pypi_filter is None and pypi_filter_req is None:
+    if not pypi_filter and not pypi_filter_req:
         return
 
     if pypi_filter and pypi_filter_req:
@@ -112,19 +86,19 @@ def tox_configure(config):
     print('Starting tox-pypi-filter server with the following requirements:')
     print(indent(contents.strip(), '  '))
 
-    SERVER_PROCESS = subprocess.Popen([sys.executable, '-m', 'pypicky',
-                                       reqfile, '--port', str(port), '--quiet'])
+    SERVER_PROCESS.append(subprocess.Popen([sys.executable, '-m', 'pypicky',
+                                            reqfile, '--port', str(port), '--quiet']))
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
 
-    envconfig.config.indexserver['default'].url = f'http://localhost:{port}'
+    venv.envconfig.config.indexserver['default'].url = f'http://localhost:{port}'
 
 
 @hookimpl
 def tox_cleanup(session):
     global SERVER_PROCESS
-    if SERVER_PROCESS is not None:
+    for process in SERVER_PROCESS:
         print('Shutting down tox-pypi-filter server')
-        SERVER_PROCESS.terminate()
-        SERVER_PROCESS = None
+        process.terminate()
+        SERVER_PROCESS = []
