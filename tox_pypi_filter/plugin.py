@@ -47,14 +47,29 @@ SERVER_PROCESS = []
 def tox_testenv_create(venv, action):
     global SERVER_PROCESS
 
-    pypi_filter = venv.envconfig.config.option.pypi_filter or venv.envconfig.pypi_filter
-    pypi_filter_req = venv.envconfig.config.option.pypi_filter_req or venv.envconfig.pypi_filter_requirements
+    # If either command-line flag is set, it takes precedence over any tox config
+    if venv.envconfig.config.option.pypi_filter or venv.envconfig.config.option.pypi_filter_req:
+
+        pypi_filter = venv.envconfig.config.option.pypi_filter
+        pypi_filter_req = venv.envconfig.config.option.pypi_filter_req
+
+        # Can't specify both command-line flags
+        if pypi_filter and pypi_filter_req:
+            raise ValueError("Please specify only one of --pypi-filter or --pypi-filter-requirements")
+
+    else:
+
+        pypi_filter = venv.envconfig.pypi_filter
+        pypi_filter_req = venv.envconfig.pypi_filter_requirements
+
+        # Can't specify both config options - if overriding e.g. pypi_filter with
+        # pypi_filter_requirements in a specific environment, need to reset
+        # pypi_filter to an empty string.
+        if pypi_filter and pypi_filter_req:
+            raise ValueError("Please specify only one of pypi_filter or pypi_filter_requirements in the tox configuration")
 
     if not pypi_filter and not pypi_filter_req:
         return
-
-    if pypi_filter and pypi_filter_req:
-        raise ValueError("Please specify only one of --pypi-filter or --pypi-filter-requirements")
 
     if pypi_filter:
         # Write out requirements to file
