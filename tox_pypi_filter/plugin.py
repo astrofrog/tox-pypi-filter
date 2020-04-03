@@ -11,8 +11,6 @@ from textwrap import indent
 import pluggy
 from pkg_resources import DistributionNotFound, get_distribution
 
-from tox.interpreters import tox_get_python_executable as _tox_get_python_executable
-
 try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
@@ -43,6 +41,7 @@ def tox_addoption(parser):
 
 
 SERVER_PROCESS = []
+
 
 @hookimpl
 def tox_testenv_create(venv, action):

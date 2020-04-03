@@ -1,0 +1,20 @@
+resources:
+  repositories:
+  - repository: OpenAstronomy
+    type: github
+    endpoint: astrofrog
+    name: OpenAstronomy/azure-pipelines-templates
+    ref: master
+
+jobs:
+
+- template: run-tox-env.yml@OpenAstronomy
+  parameters:
+
+    envs:
+
+    - linux: codestyle
+
+    - linux: py36-test-cli
+    - linux: py37-test-cli
+    - linux: py38-test-cli
