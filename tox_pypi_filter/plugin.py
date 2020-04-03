@@ -46,7 +46,7 @@ def tox_testenv_create(venv, action):
     url_info = urllib.parse.urlparse(pypi_filter)
 
     if url_info.scheme == 'file':
-        reqfile = url_info.netloc
+        reqfile = url_info.netloc + url_info.path
     elif url_info.scheme:
         reqfile = urllib.request.urlretrieve(url_info.geturl())[0]
     else:
