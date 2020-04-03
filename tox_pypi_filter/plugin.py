@@ -31,11 +31,15 @@ def tox_addoption(parser):
     parser.add_testenv_attribute('pypi_filter', 'string', help=HELP)
 
 
-SERVER_PROCESS = []
+SERVER_PROCESS = {}
 
 
 @hookimpl
 def tox_testenv_create(venv, action):
+    # Skip the environment used for creating the tarball
+    if venv.name == ".package":
+        return
+
     global SERVER_PROCESS
 
     pypi_filter = venv.envconfig.config.option.pypi_filter or venv.envconfig.pypi_filter
@@ -68,11 +72,11 @@ def tox_testenv_create(venv, action):
     sock.close()
 
     # Run pypicky
-    print('Starting tox-pypi-filter server with the following requirements:')
+    print(f"{venv.name}: Starting tox-pypi-filter server with the following requirements:")
     print(indent(contents.strip(), '  '))
 
-    SERVER_PROCESS.append(subprocess.Popen([sys.executable, '-m', 'pypicky',
-                                            reqfile, '--port', str(port), '--quiet']))
+    SERVER_PROCESS[venv.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
+                                                  reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
@@ -81,9 +85,20 @@ def tox_testenv_create(venv, action):
 
 
 @hookimpl
+def tox_runtest_post(venv):
+    global SERVER_PROCESS
+
+    proc = SERVER_PROCESS.pop(venv.name, None)
+    if proc:
+        print(f"{venv.name}: Shutting down tox-pypi-filter server")
+        proc.terminate()
+
+
+@hookimpl
 def tox_cleanup(session):
     global SERVER_PROCESS
-    for process in SERVER_PROCESS:
-        print('Shutting down tox-pypi-filter server')
+
+    for venv, process in SERVER_PROCESS.items():
+        print(f"{venv}: Shutting down tox-pypi-filter server.")
         process.terminate()
-        SERVER_PROCESS = []
+        SERVER_PROCESS = {}
