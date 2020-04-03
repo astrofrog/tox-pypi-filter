@@ -20,24 +20,15 @@ hookimpl = pluggy.HookimplMarker("tox")
 
 HELP = ("Specify version constraints for packages which are then applied by "
         "setting up a proxy PyPI server. If giving multiple constraints, you "
-        "can separate them with semicolons (;).")
-
-HELP_REQ = ("Specify version constraints for packages which are then applied by "
-            "setting up a proxy PyPI server. This should be set to a file in "
-            "pip requirements.txt format, i.e. one package per line, and can "
-            "be a URL.")
+        "can separate them with semicolons (;). This can also be a URL to a "
+        "local file (e.g. file:// or file:///) or a remote file (e.g. "
+        "http://, https://, or ftp://).")
 
 
 @hookimpl
 def tox_addoption(parser):
-
     parser.add_argument('--pypi-filter', dest='pypi_filter', help=HELP)
-    parser.add_argument('--pypi-filter-requirements', dest='pypi_filter_req',
-                        help=HELP_REQ)
-
     parser.add_testenv_attribute('pypi_filter', 'string', help=HELP)
-    parser.add_testenv_attribute('pypi_filter_requirements', 'string',
-                                 help=HELP_REQ)
 
 
 SERVER_PROCESS = []
@@ -47,42 +38,22 @@ SERVER_PROCESS = []
 def tox_testenv_create(venv, action):
     global SERVER_PROCESS
 
-    # If either command-line flag is set, it takes precedence over any tox config
-    if venv.envconfig.config.option.pypi_filter or venv.envconfig.config.option.pypi_filter_req:
+    pypi_filter = venv.envconfig.config.option.pypi_filter or venv.envconfig.pypi_filter
 
-        pypi_filter = venv.envconfig.config.option.pypi_filter
-        pypi_filter_req = venv.envconfig.config.option.pypi_filter_req
-
-        # Can't specify both command-line flags
-        if pypi_filter and pypi_filter_req:
-            raise ValueError("Please specify only one of --pypi-filter or --pypi-filter-requirements")
-
-    else:
-
-        pypi_filter = venv.envconfig.pypi_filter
-        pypi_filter_req = venv.envconfig.pypi_filter_requirements
-
-        # Can't specify both config options - if overriding e.g. pypi_filter with
-        # pypi_filter_requirements in a specific environment, need to reset
-        # pypi_filter to an empty string.
-        if pypi_filter and pypi_filter_req:
-            raise ValueError("Please specify only one of pypi_filter or pypi_filter_requirements in the tox configuration")
-
-    if not pypi_filter and not pypi_filter_req:
+    if not pypi_filter:
         return
 
-    if pypi_filter:
+    url_info = urllib.parse.urlparse(pypi_filter)
+
+    if url_info.scheme:
+        reqfile = urllib.request.urlretrieve(url_info.geturl())[0]
+    elif pypi_filter.startswith('file://'):
+        reqfile = url_info.path
+    else:
         # Write out requirements to file
         reqfile = tempfile.mktemp()
         with open(reqfile, 'w') as f:
             f.write(os.linesep.join(pypi_filter.split(';')))
-
-    if pypi_filter_req:
-        url_info = urllib.parse.urlparse(pypi_filter_req)
-        if url_info.scheme:
-            reqfile, _ = urllib.request.urlretrieve(url_info.geturl())
-        else:
-            reqfile = url_info.path
 
     # If we get a blank set of requirements then we don't do anything.
     with open(reqfile, "r") as fobj:
