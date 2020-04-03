@@ -15,6 +15,6 @@ jobs:
 
     - linux: codestyle
 
-    - linux: py36-test-cli
-    - linux: py37-test-cli
+    - windows: py36-test-cli
+    - macos: py37-test-cli
     - linux: py38-test-cli
