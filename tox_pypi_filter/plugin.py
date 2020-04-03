@@ -45,10 +45,10 @@ def tox_testenv_create(venv, action):
 
     url_info = urllib.parse.urlparse(pypi_filter)
 
-    if url_info.scheme:
+    if url_info.scheme == 'file':
+        reqfile = url_info.netloc
+    elif url_info.scheme:
         reqfile = urllib.request.urlretrieve(url_info.geturl())[0]
-    elif pypi_filter.startswith('file://'):
-        reqfile = url_info.path
     else:
         # Write out requirements to file
         reqfile = tempfile.mktemp()
