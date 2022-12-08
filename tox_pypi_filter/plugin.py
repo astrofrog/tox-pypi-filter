@@ -8,7 +8,11 @@ import urllib.parse
 import urllib.request
 from textwrap import indent
 
-import pluggy
+from tox.plugin import impl
+from tox.config.cli.parser import ToxParser
+from tox.config.sets import ConfigSet, EnvConfigSet
+from tox.session.state import State
+
 from pkg_resources import DistributionNotFound, get_distribution
 
 try:
@@ -16,7 +20,6 @@ try:
 except DistributionNotFound:
     pass
 
-hookimpl = pluggy.HookimplMarker("tox")
 
 HELP = ("Specify version constraints for packages which are then applied by "
         "setting up a proxy PyPI server. If giving multiple constraints, you "
@@ -25,24 +28,31 @@ HELP = ("Specify version constraints for packages which are then applied by "
         "http://, https://, or ftp://).")
 
 
-@hookimpl
-def tox_addoption(parser):
-    parser.add_argument('--pypi-filter', dest='pypi_filter', help=HELP)
-    parser.add_testenv_attribute('pypi_filter', 'string', help=HELP)
+@impl
+def tox_add_option(parser: ToxParser) -> None:
+    parser.add_argument('--pypi-filter', action="store", type=str, of_type=str)
+
+
+@impl
+def tox_add_core_config(core_conf: ConfigSet, state: State) -> None:
+    core_conf.add_config('pypi_filter', 'string', default="", desc=HELP)
 
 
 SERVER_PROCESS = {}
 
 
-@hookimpl
-def tox_testenv_create(venv, action):
+@impl
+def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
     # Skip the environment used for creating the tarball
-    if venv.name == ".package":
+    if env_conf.name == ".pkg":
         return
 
     global SERVER_PROCESS
 
-    pypi_filter = venv.envconfig.config.option.pypi_filter or venv.envconfig.pypi_filter
+    pypi_filter_config = state.conf.core["pypi_filter"]
+    pypi_filter_cli = state.conf.options.pypi_filter
+
+    pypi_filter = pypi_filter_cli or pypi_filter_config
 
     if not pypi_filter:
         return
@@ -72,33 +82,27 @@ def tox_testenv_create(venv, action):
     sock.close()
 
     # Run pypicky
-    print(f"{venv.name}: Starting tox-pypi-filter server with the following requirements:")
+    print(f"{env_conf.name}: Starting tox-pypi-filter server with the following requirements:")
     print(indent(contents.strip(), '  '))
 
-    SERVER_PROCESS[venv.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
-                                                  reqfile, '--port', str(port), '--quiet'])
+    SERVER_PROCESS[env_conf.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
+                                                      reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
 
-    venv.envconfig.config.indexserver['default'].url = f'http://localhost:{port}'
+    env_config = env_conf.load("setenv")
+    if "PIP_INDEX_URL" in env_config:
+        raise ValueError("Can not use tox-pypi-filter if already setting the PIP_INDEX_URL env var.")
+    env_config.update({"PIP_INDEX_URL": f'http://localhost:{port}'})
 
 
-@hookimpl
-def tox_runtest_post(venv):
+@impl
+def tox_after_run_commands(tox_env, exit_code, outcomes):
+    print("After run commands")
     global SERVER_PROCESS
 
-    proc = SERVER_PROCESS.pop(venv.name, None)
+    proc = SERVER_PROCESS.pop(tox_env.name, None)
     if proc:
-        print(f"{venv.name}: Shutting down tox-pypi-filter server")
+        print(f"{tox_env.name}: Shutting down tox-pypi-filter server")
         proc.terminate()
-
-
-@hookimpl
-def tox_cleanup(session):
-    global SERVER_PROCESS
-
-    for venv, process in SERVER_PROCESS.items():
-        print(f"{venv}: Shutting down tox-pypi-filter server.")
-        process.terminate()
-        SERVER_PROCESS = {}
