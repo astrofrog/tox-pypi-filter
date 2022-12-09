@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - 'v*'
+      - '!*dev*'
+      - '!*pre*'
+      - '!*post*'
+  pull_request:
+  # Allow manual runs through the web UI
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
+    with:
+      submodules: false
+      toxdeps: "'tox<4'"
+      envs: |
+        - linux: codestyle
+        - windows: py38-test-cli
+        - macos: py39-test-cli
+        - linux: py310-test-cli
+        - linux: py311-test-cli
+        - windows: py39-test-config
+        - macos: py310-test-config
+        - linux: py38-test-config
+        - linux: py311-test-config
+
+  publish:
+    # Build wheels when pushing to any branch except main
+    # publish.yml will only publish if tagged ^v.*
+    if: |
+      (
+        github.event_name != 'pull_request' && (
+          github.ref_name != 'main' ||
+          github.event_name == 'workflow_dispatch'
+        )
+      ) || (
+        github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'Run publish')
+      )
+    needs: [test]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish_pure_python.yml@main
+    secrets:
+      pypi_token: ${{ secrets.pypi_token }}
