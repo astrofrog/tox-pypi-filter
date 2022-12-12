@@ -10,7 +10,7 @@ from textwrap import indent
 
 from tox.plugin import impl
 from tox.config.cli.parser import ToxParser
-from tox.config.sets import ConfigSet, EnvConfigSet
+from tox.config.sets import EnvConfigSet
 from tox.session.state import State
 
 from pkg_resources import DistributionNotFound, get_distribution
@@ -33,25 +33,21 @@ def tox_add_option(parser: ToxParser) -> None:
     parser.add_argument('--pypi-filter', action="store", type=str, of_type=str)
 
 
-@impl
-def tox_add_core_config(core_conf: ConfigSet, state: State) -> None:
-    core_conf.add_config('pypi_filter', 'string', default="", desc=HELP)
-
-
 SERVER_PROCESS = {}
 
 
 @impl
 def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
+    env_conf.add_config('pypi_filter', default=None, desc=HELP, of_type=str)
+
     # Skip the environment used for creating the tarball
     if env_conf.name == ".pkg":
         return
 
     global SERVER_PROCESS
 
-    pypi_filter_config = state.conf.core["pypi_filter"]
+    pypi_filter_config = env_conf.load("pypi_filter")
     pypi_filter_cli = state.conf.options.pypi_filter
-
     pypi_filter = pypi_filter_cli or pypi_filter_config
 
     if not pypi_filter:
@@ -99,7 +95,6 @@ def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
 
 @impl
 def tox_after_run_commands(tox_env, exit_code, outcomes):
-    print("After run commands")
     global SERVER_PROCESS
 
     proc = SERVER_PROCESS.pop(tox_env.name, None)
