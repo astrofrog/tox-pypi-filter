@@ -36,6 +36,7 @@ def tox_add_option(parser: ToxParser) -> None:
 
 
 SERVER_PROCESS = {}
+SERVER_URLS = {}
 
 @impl
 def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
@@ -44,7 +45,11 @@ def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
 
 @impl
 def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) -> None:
-    global SERVER_PROCESS
+    # Do not set the environment variable for the custom index if we are in the .pkg step
+    if tox_env.name == ".pkg":
+        return
+
+    global SERVER_PROCESS, SERVER_URLS
 
     pypi_filter_config = tox_env.conf.load("pypi_filter")
     pypi_filter_cli = tox_env.options.pypi_filter
@@ -73,26 +78,31 @@ def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) 
             return
         contents = "\n".join(contents)
 
-    # Find available port
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('localhost', 0))
-    port = sock.getsockname()[1]
-    sock.close()
+    # We might have already setup the process for this env at an earlier call of this function.
+    if tox_env.name not in SERVER_PROCESS:
+        # Find available port
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(('localhost', 0))
+        port = sock.getsockname()[1]
+        sock.close()
 
-    # Run pypicky
-    print(f"{tox_env.name}: Starting tox-pypi-filter server with the following requirements:")
-    print(indent(contents.strip(), '  '))
+        # Run pypicky
+        print(f"{tox_env.name}: Starting tox-pypi-filter server with the following requirements:")
+        print(indent(contents.strip(), '  '))
 
-    SERVER_PROCESS[tox_env.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
-                                                     reqfile, '--port', str(port), '--quiet'])
+        SERVER_URLS[tox_env.name] = f'http://localhost:{port}'
+        SERVER_PROCESS[tox_env.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
+                                                        reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
 
-    env_config = tox_env.conf.load("setenv")
-    if "PIP_INDEX_URL" in env_config:
+    # If PIP_INDEX_URL is configured in config it will conflict
+    if "PIP_INDEX_URL" in tox_env.conf.load("setenv"):
         raise ValueError("Can not use tox-pypi-filter if already setting the PIP_INDEX_URL env var.")
-    env_config.update({"PIP_INDEX_URL": f'http://localhost:{port}'})
+
+    # Add the index url to the env vars just for this install (as oppsed to the global config)
+    tox_env.environment_variables["PIP_INDEX_URL"] = SERVER_URLS[tox_env.name]
 
 
 @impl
