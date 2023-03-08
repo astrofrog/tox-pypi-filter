@@ -7,8 +7,10 @@ import subprocess
 import urllib.parse
 import urllib.request
 from textwrap import indent
+from typing import Any
 
 from tox.plugin import impl
+from tox.tox_env.api import ToxEnv
 from tox.config.cli.parser import ToxParser
 from tox.config.sets import EnvConfigSet
 from tox.session.state import State
@@ -35,19 +37,17 @@ def tox_add_option(parser: ToxParser) -> None:
 
 SERVER_PROCESS = {}
 
-
 @impl
 def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
     env_conf.add_config('pypi_filter', default=None, desc=HELP, of_type=str)
 
-    # Skip the environment used for creating the tarball
-    if env_conf.name == ".pkg":
-        return
 
+@impl
+def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) -> None:
     global SERVER_PROCESS
 
-    pypi_filter_config = env_conf.load("pypi_filter")
-    pypi_filter_cli = state.conf.options.pypi_filter
+    pypi_filter_config = tox_env.conf.load("pypi_filter")
+    pypi_filter_cli = tox_env.options.pypi_filter
     pypi_filter = pypi_filter_cli or pypi_filter_config
 
     if not pypi_filter:
@@ -78,23 +78,23 @@ def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
     sock.close()
 
     # Run pypicky
-    print(f"{env_conf.name}: Starting tox-pypi-filter server with the following requirements:")
+    print(f"{tox_env.name}: Starting tox-pypi-filter server with the following requirements:")
     print(indent(contents.strip(), '  '))
 
-    SERVER_PROCESS[env_conf.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
+    SERVER_PROCESS[tox_env.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
                                                       reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
 
-    env_config = env_conf.load("setenv")
+    env_config = tox_env.conf.load("setenv")
     if "PIP_INDEX_URL" in env_config:
         raise ValueError("Can not use tox-pypi-filter if already setting the PIP_INDEX_URL env var.")
     env_config.update({"PIP_INDEX_URL": f'http://localhost:{port}'})
 
 
 @impl
-def tox_after_run_commands(tox_env, exit_code, outcomes):
+def tox_env_teardown(tox_env):
     global SERVER_PROCESS
 
     proc = SERVER_PROCESS.pop(tox_env.name, None)
