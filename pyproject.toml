@@ -1,3 +1,24 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = 'setuptools.build_meta'
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tox-pypi-filter"
+authors = [
+    {name = "Thomas Robitaille", email = "thomas.robitaille@gmail.com"},
+    {name = "Stuart Mumford", email = "stuart@cadair.com"},
+]
+description = "Implement a --pypi-filter option for tox"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = {text = "BSD-2-Clause"}
+dependencies = [
+    "tox>=4.0.9",
+    "pypicky>=0.5"
+]
+dynamic = ["version"]
+
+[project.entry-points."tox"]
+pypi-filter = "tox_pypi_filter.plugin"
+
+[tool.setuptools_scm]
