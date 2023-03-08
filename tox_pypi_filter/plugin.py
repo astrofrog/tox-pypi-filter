@@ -67,9 +67,11 @@ def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) 
 
     # If we get a blank set of requirements then we don't do anything.
     with open(reqfile, "r") as fobj:
-        contents = fobj.read()
+        contents = fobj.readlines()
+        contents = list(filter(lambda line: not line.startswith("#"), contents))
         if not contents:
             return
+        contents = "\n".join(contents)
 
     # Find available port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -82,7 +84,7 @@ def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) 
     print(indent(contents.strip(), '  '))
 
     SERVER_PROCESS[tox_env.name] = subprocess.Popen([sys.executable, '-m', 'pypicky',
-                                                      reqfile, '--port', str(port), '--quiet'])
+                                                     reqfile, '--port', str(port), '--quiet'])
 
     # FIXME: properly check that the server has started up
     time.sleep(2)
