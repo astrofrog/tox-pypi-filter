@@ -24,13 +24,14 @@ jobs:
       submodules: false
       envs: |
         - linux: codestyle
-        - windows: py38-test-cli
-        - macos: py39-test-cli
-        - linux: py310-test-cli
+        - windows: py310-test-cli
+        - macos: py311-test-cli
         - linux: py311-test-cli
-        - windows: py39-test-config
-        - macos: py310-test-config
-        - linux: py38-test-config
+        - linux: py312-test-cli
+        - linux: py313-test-cli
+        - windows: py310-test-config
+        - macos: py312-test-config
+        - linux: py310-test-config
         - linux: py311-test-config
 
   publish:
