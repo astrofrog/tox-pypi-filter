@@ -15,13 +15,6 @@ from tox.config.cli.parser import ToxParser
 from tox.config.sets import EnvConfigSet
 from tox.session.state import State
 
-from pkg_resources import DistributionNotFound, get_distribution
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    pass
-
 
 HELP = ("Specify version constraints for packages which are then applied by "
         "setting up a proxy PyPI server. If giving multiple constraints, you "
@@ -50,7 +43,7 @@ def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) 
     if tox_env.name == ".pkg":
         return
 
-    global SERVER_PROCESS, SERVER_URLS
+    global SERVER_PROCESS, SERVER_URLS  # noqa
 
     pypi_filter_config = tox_env.conf.load("pypi_filter")
     pypi_filter_cli = tox_env.options.pypi_filter
@@ -108,7 +101,7 @@ def tox_on_install(tox_env: ToxEnv, arguments: Any, section: str, of_type: str) 
 
 @impl
 def tox_env_teardown(tox_env):
-    global SERVER_PROCESS
+    global SERVER_PROCESS  # noqa
 
     proc = SERVER_PROCESS.pop(tox_env.name, None)
     if proc:

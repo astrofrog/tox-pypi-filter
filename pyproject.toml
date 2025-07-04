@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Implement a --pypi-filter option for tox"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "BSD-2-Clause"}
 dependencies = [
     "tox>=4.0.9",
