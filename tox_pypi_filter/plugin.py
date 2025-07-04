@@ -15,13 +15,6 @@ from tox.config.cli.parser import ToxParser
 from tox.config.sets import EnvConfigSet
 from tox.session.state import State
 
-from pkg_resources import DistributionNotFound, get_distribution
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    pass
-
 
 HELP = ("Specify version constraints for packages which are then applied by "
         "setting up a proxy PyPI server. If giving multiple constraints, you "
